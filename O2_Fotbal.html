@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>O2 Slovakia - Turnaj</title>
+<style>
+:root{
+  --o2:#0050ff;
+  --bg:#eef3fb;
+  --card:#ffffff;
+  --text:#172033;
+  --muted:#667085;
+  --win:#16a34a;
+  --draw:#d97706;
+  --loss:#dc2626;
+  --border:#d7deea;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+  background:linear-gradient(180deg,#dfeaff 0%, var(--bg) 180px);
+  color:var(--text);
+}
+header{
+  padding:22px 16px 14px;
+  text-align:center;
+}
+h1{
+  margin:0;
+  font-size:26px;
+}
+.subtitle{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:14px;
+}
+.container{
+  max-width:760px;
+  margin:0 auto;
+  padding:0 12px 28px;
+}
+.summary{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin:10px 0 8px;
+}
+.summary div, .score-summary{
+  background:var(--card);
+  border-radius:14px;
+  padding:10px 6px;
+  text-align:center;
+  box-shadow:0 4px 14px rgba(0,0,0,.06);
+}
+.summary b, .score-summary b{
+  display:block;
+  font-size:22px;
+}
+.summary span, .score-summary span{
+  color:var(--muted);
+  font-size:12px;
+}
+.score-summary{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+  margin-bottom:14px;
+}
+.card{
+  background:var(--card);
+  border-radius:18px;
+  margin:12px 0;
+  padding:14px;
+  box-shadow:0 5px 18px rgba(0,0,0,.08);
+  border-left:6px solid var(--o2);
+}
+.card.win{border-left-color:var(--win)}
+.card.draw{border-left-color:var(--draw)}
+.card.loss{border-left-color:var(--loss)}
+.meta{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--muted);
+  font-size:13px;
+  margin-bottom:12px;
+}
+.teams{
+  display:grid;
+  grid-template-columns:1fr 68px 18px 68px 1fr;
+  gap:8px;
+  align-items:center;
+}
+.team{
+  font-weight:700;
+  line-height:1.2;
+}
+.team.right{text-align:right}
+input{
+  width:100%;
+  padding:9px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:16px;
+  background:#fbfdff;
+}
+.goal-btn{
+  width:68px;
+  height:58px;
+  border-radius:16px;
+  background:#f7faff;
+  border:2px solid var(--o2);
+  color:var(--o2);
+  font-size:26px;
+  font-weight:900;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:manipulation;
+  box-shadow:0 3px 10px rgba(0,80,255,.12);
+}
+.goal-btn:active{
+  transform:scale(.96);
+}
+.colon{
+  text-align:center;
+  font-size:24px;
+  font-weight:800;
+}
+.result{
+  margin-top:12px;
+  font-weight:700;
+  font-size:14px;
+}
+.result.win{color:var(--win)}
+.result.draw{color:var(--draw)}
+.result.loss{color:var(--loss)}
+.extra-fields{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:10px;
+}
+.extra-fields .full{
+  grid-column:1 / -1;
+}
+.actions{
+  display:flex;
+  gap:8px;
+  margin-top:16px;
+}
+button{
+  border:0;
+  border-radius:14px;
+  padding:12px;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+}
+.add{
+  flex:1;
+  background:var(--o2);
+  color:white;
+}
+.reset{
+  background:#fff;
+  color:var(--loss);
+  border:1px solid var(--border);
+}
+.note{
+  color:var(--muted);
+  text-align:center;
+  font-size:12px;
+  margin-top:12px;
+  line-height:1.45;
+}
+@media(max-width:520px){
+  .teams{
+    grid-template-columns:1fr 58px 12px 58px 1fr;
+  }
+  .goal-btn{
+    width:58px;
+    height:54px;
+    font-size:24px;
+  }
+  h1{font-size:22px}
+  .team{font-size:14px}
+  .summary b,.score-summary b{font-size:19px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚽ O2 Slovakia - Turnaj</h1>
+  <div class="subtitle">Klikni na skóre pro přidání gólu. Dlouhé podržení ubere gól.</div>
+</header>
+
+<div class="container">
+  <div class="summary">
+    <div><b id="played">0</b><span>odehráno</span></div>
+    <div><b id="points">0</b><span>body</span></div>
+    <div><b id="wins">0</b><span>výhry</span></div>
+    <div><b id="losses">0</b><span>prohry</span></div>
+  </div>
+
+  <div class="score-summary">
+    <div><b id="draws">0</b><span>remízy</span></div>
+    <div><b id="goalsFor">0</b><span>góly O2</span></div>
+    <div><b id="goalsAgainst">0</b><span>inkasované</span></div>
+  </div>
+
+  <div id="matches"></div>
+
+  <div class="actions">
+    <button class="add" onclick="addMatch()">➕ Přidat další zápas</button>
+    <button class="reset" onclick="resetAll()">Reset</button>
+  </div>
+
+  <div class="actions">
+    <button class="add report-main" onclick="generateReport()">📋 Vygenerovat report</button>
+  </div>
+
+  <div id="reportPanel" class="report-panel">
+    <div class="report-title">📋 Report turnaje</div>
+    <div id="reportHtml"></div>
+
+    <div class="report-section-title">📝 Textový report pro kopírování</div>
+    <textarea id="reportOutput" readonly></textarea>
+
+    <div class="report-actions">
+      <button onclick="copyReport()">Kopírovat</button>
+      <button onclick="shareReport()">Sdílet</button>
+      <button onclick="downloadReport()">TXT</button>
+    </div>
+  </div>
+
+  <div class="note">
+    Skóre se nastavuje klikáním od 0 do 15. Po 15 skočí zpět na 0.<br>
+    Dlouhé podržení čísla odečte jeden gól.
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "o2-turnaj-zapasy-v5";
+let longPressTimer = null;
+let longPressUsed = false;
+
+const baseMatches = [
+ {home:"Micropoll", away:"O2 Slovakia", time:"09:40", date:"12.06.2026", field:"Pasienky 1", visible:true, extra:false, homeScore:0, awayScore:0},
+ {home:"Lidl Slovenská republika", away:"O2 Slovakia", time:"10:20", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
+ {home:"O2 Slovakia", away:"Magna Electronics Slovakia", time:"11:00", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
+ {home:"ASO VENDING", away:"O2 Slovakia", time:"11:40", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
+ {home:"British American Tobacco", away:"O2 Slovakia", time:"12:20", date:"12.06.2026", field:"Pasienky 4", visible:true, extra:false, homeScore:0, awayScore:0}
+];
+
+const extraMatches = Array.from({length:10}, () => ({
+ home:"O2 Slovakia",
+ away:"",
+ time:"",
+ date:"12.06.2026",
+ field:"",
+ visible:false,
+ extra:true,
+ homeScore:0,
+ awayScore:0
+}));
+
+let matches = load() || [...baseMatches.map(m => ({...m})), ...extraMatches.map(m => ({...m}))];
+
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+}
+
+function load(){
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return Array.isArray(data) ? data.map(m => ({
+      ...m,
+      homeScore: Number.isFinite(Number(m.homeScore)) ? Number(m.homeScore) : 0,
+      awayScore: Number.isFinite(Number(m.awayScore)) ? Number(m.awayScore) : 0
+    })) : null;
+  } catch(e){
+    return null;
+  }
+}
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;");
+}
+
+function o2Data(match){
+  const hs = Number(match.homeScore ?? 0);
+  const as = Number(match.awayScore ?? 0);
+  const o2Home = match.home.trim().toLowerCase() === "o2 slovakia";
+  return {
+    o2Score: o2Home ? hs : as,
+    opponentScore: o2Home ? as : hs
+  };
+}
+
+function o2Result(match){
+  const {o2Score, opponentScore} = o2Data(match);
+  if(o2Score > opponentScore) return "win";
+  if(o2Score < opponentScore) return "loss";
+  return "draw";
+}
+
+function resultText(type){
+  if(type === "win") return "✅ Výhra O2 Slovakia";
+  if(type === "loss") return "❌ Prohra O2 Slovakia";
+  if(type === "draw") return "🤝 Remíza";
+  return "";
+}
+
+function changeGoal(index, field, direction){
+  let value = Number(matches[index][field] ?? 0);
+
+  if(direction === "up"){
+    value = value >= 15 ? 0 : value + 1;
+  } else {
+    value = value <= 0 ? 0 : value - 1;
+  }
+
+  matches[index][field] = value;
+  save();
+  render();
+}
+
+function startLongPress(event, index, field){
+  event.preventDefault();
+  longPressUsed = false;
+  clearTimeout(longPressTimer);
+
+  if(event.currentTarget && event.pointerId !== undefined){
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch(e) {}
+  }
+
+  longPressTimer = setTimeout(() => {
+    longPressUsed = true;
+    changeGoal(index, field, "down");
+  }, 550);
+}
+
+function endLongPress(event, index, field){
+  event.preventDefault();
+  clearTimeout(longPressTimer);
+
+  if(event.currentTarget && event.pointerId !== undefined){
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch(e) {}
+  }
+
+  if(!longPressUsed){
+    changeGoal(index, field, "up");
+  }
+}
+
+function cancelLongPress(){
+  clearTimeout(longPressTimer);
+}
+
+function render(){
+  const root = document.getElementById("matches");
+  root.innerHTML = "";
+
+  matches.forEach((m, index) => {
+    if(!m.visible) return;
+
+    const type = o2Result(m);
+    const card = document.createElement("div");
+    card.className = "card " + (type || "");
+
+    const extraFields = m.extra ? `
+      <div class="extra-fields">
+        <input class="full" value="${escapeHtml(m.away)}" placeholder="Soupeř - s kým hraje O2 Slovakia?" oninput="updateTextField(${index}, 'away', this.value)" onblur="render()">
+        <input value="${escapeHtml(m.date)}" placeholder="Datum" oninput="updateTextField(${index}, 'date', this.value)" onblur="render()">
+        <input value="${escapeHtml(m.time)}" placeholder="Čas" oninput="updateTextField(${index}, 'time', this.value)" onblur="render()">
+        <input value="${escapeHtml(m.field)}" placeholder="Hřiště" oninput="updateTextField(${index}, 'field', this.value)" onblur="render()">
+      </div>
+    ` : "";
+
+    card.innerHTML = `
+      ${extraFields}
+      <div class="meta">
+        <span>🗓️ ${escapeHtml(m.date || "datum?")} · ${escapeHtml(m.time || "čas?")}</span>
+        <span>📍 ${escapeHtml(m.field || "hřiště?")}</span>
+      </div>
+      <div class="teams">
+        <div class="team">${escapeHtml(m.home || "O2 Slovakia")}</div>
+
+        <button class="goal-btn"
+          onclick="event.preventDefault()"
+          onpointerdown="startLongPress(event, ${index}, 'homeScore')"
+          onpointerup="endLongPress(event, ${index}, 'homeScore')"
+          onpointercancel="cancelLongPress()">${Number(m.homeScore ?? 0)}</button>
+
+        <div class="colon">:</div>
+
+        <button class="goal-btn"
+          onclick="event.preventDefault()"
+          onpointerdown="startLongPress(event, ${index}, 'awayScore')"
+          onpointerup="endLongPress(event, ${index}, 'awayScore')"
+          onpointercancel="cancelLongPress()">${Number(m.awayScore ?? 0)}</button>
+
+        <div class="team right">${escapeHtml(m.away || "Soupeř")}</div>
+      </div>
+      <div class="result ${type || ""}">${resultText(type)}</div>
+    `;
+
+    root.appendChild(card);
+  });
+
+  updateSummary();
+}
+
+function updateTextField(index, field, value){
+  matches[index][field] = value;
+  save();
+}
+
+function updateMatch(index, field, value){
+  matches[index][field] = value;
+  save();
+  render();
+}
+
+function addMatch(){
+  const next = matches.find(m => m.extra && !m.visible);
+  if(!next){
+    alert("Všech 10 dodatečných zápasů je už zobrazeno.");
+    return;
+  }
+  next.visible = true;
+  save();
+  render();
+
+  setTimeout(() => {
+    const cards = document.querySelectorAll(".card");
+    cards[cards.length - 1]?.scrollIntoView({behavior:"smooth", block:"center"});
+  }, 50);
+}
+
+function updateSummary(){
+  let played = 0, points = 0, wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
+
+  matches.forEach(m => {
+    if(!m.visible) return;
+
+    const hs = Number(m.homeScore ?? 0);
+    const as = Number(m.awayScore ?? 0);
+
+    // Zápas bereme jako odehraný až když je skóre jiné než 0:0.
+    // 0:0 je default stav, aby se nepočítaly všechny zápasy hned jako remízy.
+    if(hs === 0 && as === 0) return;
+
+    const data = o2Data(m);
+    const type = o2Result(m);
+
+    played++;
+    goalsFor += data.o2Score;
+    goalsAgainst += data.opponentScore;
+
+    if(type === "win"){ wins++; points += 3; }
+    if(type === "draw"){ draws++; points += 1; }
+    if(type === "loss"){ losses++; }
+  });
+
+  document.getElementById("played").textContent = played;
+  document.getElementById("points").textContent = points;
+  document.getElementById("wins").textContent = wins;
+  document.getElementById("draws").textContent = draws;
+  document.getElementById("losses").textContent = losses;
+  document.getElementById("goalsFor").textContent = goalsFor;
+  document.getElementById("goalsAgainst").textContent = goalsAgainst;
+}
+
+
+function visibleMatches(){
+  return matches.filter(m => m.visible);
+}
+
+function playedMatches(){
+  return visibleMatches().filter(m => Number(m.homeScore ?? 0) !== 0 || Number(m.awayScore ?? 0) !== 0);
+}
+
+
+function statusLabel(type){
+  if(type === "win") return "Výhra";
+  if(type === "draw") return "Remíza";
+  if(type === "loss") return "Prohra";
+  return "Čeká se";
+}
+
+function statusIcon(type){
+  if(type === "win") return "✅";
+  if(type === "draw") return "🤝";
+  if(type === "loss") return "❌";
+  return "⏳";
+}
+
+function calcStats(){
+  let played = 0, points = 0, wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
+
+  playedMatches().forEach(m => {
+    const data = o2Data(m);
+    const type = o2Result(m);
+
+    played++;
+    goalsFor += data.o2Score;
+    goalsAgainst += data.opponentScore;
+
+    if(type === "win"){ wins++; points += 3; }
+    if(type === "draw"){ draws++; points += 1; }
+    if(type === "loss"){ losses++; }
+  });
+
+  return {played, points, wins, draws, losses, goalsFor, goalsAgainst};
+}
+
+function buildHtmlReport(){
+  const stats = calcStats();
+  const playedList = playedMatches();
+  const pendingList = visibleMatches().filter(m => Number(m.homeScore ?? 0) === 0 && Number(m.awayScore ?? 0) === 0);
+  const avg = stats.played > 0 ? (stats.goalsFor / stats.played).toFixed(1) : "0.0";
+
+  let html = "";
+
+  html += `
+    <div class="report-card-preview">
+      <h2>⚽ O2 Slovakia</h2>
+      <div class="report-card-grid">
+        <div><b>${stats.played}</b><span>odehráno</span></div>
+        <div><b>${stats.points}</b><span>body</span></div>
+        <div><b>${stats.goalsFor}:${stats.goalsAgainst}</b><span>skóre</span></div>
+        <div><b>${stats.wins}</b><span>výhry</span></div>
+        <div><b>${stats.draws}</b><span>remízy</span></div>
+        <div><b>${stats.losses}</b><span>prohry</span></div>
+      </div>
+    </div>
+  `;
+
+  html += `
+    <div class="report-section-title">🏆 Souhrn turnaje</div>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <tbody>
+          <tr><th>Statistika</th><th>Hodnota</th></tr>
+          <tr><td>Odehráno</td><td>${stats.played}</td></tr>
+          <tr><td>Body</td><td>${stats.points}</td></tr>
+          <tr><td>Výhry</td><td>${stats.wins}</td></tr>
+          <tr><td>Remízy</td><td>${stats.draws}</td></tr>
+          <tr><td>Prohry</td><td>${stats.losses}</td></tr>
+          <tr><td>Skóre O2</td><td>${stats.goalsFor}:${stats.goalsAgainst}</td></tr>
+          <tr><td>Průměr gólů O2 na zápas</td><td>${avg}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  html += `
+    <div class="report-section-title">⚽ Výsledky zápasů</div>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Zápas</th>
+            <th>Výsledek</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  if(playedList.length === 0){
+    html += `<tr><td colspan="4">Zatím není vyplněný žádný odehraný zápas.</td></tr>`;
+  } else {
+    playedList.forEach((m, i) => {
+      const type = o2Result(m);
+      html += `
+        <tr class="report-row-${type}">
+          <td>${i + 1}</td>
+          <td>${escapeHtml(m.home || "O2 Slovakia")} vs. ${escapeHtml(m.away || "Soupeř")}</td>
+          <td><b>${Number(m.homeScore ?? 0)}:${Number(m.awayScore ?? 0)}</b></td>
+          <td><span class="badge ${type}">${statusIcon(type)} ${statusLabel(type)}</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  html += `
+    <div class="report-section-title">📅 Program / čekající zápasy</div>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Čas</th>
+            <th>Zápas</th>
+            <th>Hřiště</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  if(pendingList.length === 0){
+    html += `<tr><td colspan="4">Žádný čekající zápas.</td></tr>`;
+  } else {
+    pendingList.forEach(m => {
+      html += `
+        <tr>
+          <td>${escapeHtml(m.time || "čas?")}</td>
+          <td>${escapeHtml(m.home || "O2 Slovakia")} vs. ${escapeHtml(m.away || "Soupeř")}</td>
+          <td>${escapeHtml(m.field || "hřiště?")}</td>
+          <td><span class="badge pending">⏳ Čeká se</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return html;
+}
+
+
+function buildReport(){
+  let played = 0, points = 0, wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
+
+  const lines = [];
+  const playedList = playedMatches();
+
+  playedList.forEach(m => {
+    const data = o2Data(m);
+    const type = o2Result(m);
+
+    played++;
+    goalsFor += data.o2Score;
+    goalsAgainst += data.opponentScore;
+
+    if(type === "win"){ wins++; points += 3; }
+    if(type === "draw"){ draws++; points += 1; }
+    if(type === "loss"){ losses++; }
+  });
+
+  lines.push("⚽ O2 Slovakia - turnaj report");
+  lines.push("");
+  lines.push("Souhrn:");
+  lines.push("Odehráno: " + played);
+  lines.push("Body: " + points);
+  lines.push("Výhry: " + wins);
+  lines.push("Remízy: " + draws);
+  lines.push("Prohry: " + losses);
+  lines.push("Skóre O2: " + goalsFor + ":" + goalsAgainst);
+
+  if(played > 0){
+    lines.push("Průměr gólů O2 na zápas: " + (goalsFor / played).toFixed(1));
+  }
+
+  lines.push("");
+  lines.push("Výsledky:");
+
+  if(playedList.length === 0){
+    lines.push("Zatím není vyplněný žádný odehraný zápas.");
+  } else {
+    playedList.forEach((m, i) => {
+      const type = o2Result(m);
+      const icon = type === "win" ? "✅" : type === "draw" ? "🤝" : "❌";
+      lines.push(
+        (i + 1) + ". " +
+        (m.home || "O2 Slovakia") + " vs. " + (m.away || "Soupeř") +
+        " " + Number(m.homeScore ?? 0) + ":" + Number(m.awayScore ?? 0) +
+        " | " + (m.time || "čas?") + " | " + (m.field || "hřiště?") +
+        " " + icon
+      );
+    });
+  }
+
+  const notPlayed = visibleMatches().filter(m => Number(m.homeScore ?? 0) === 0 && Number(m.awayScore ?? 0) === 0);
+
+  if(notPlayed.length > 0){
+    lines.push("");
+    lines.push("Ještě neodehrané / bez výsledku:");
+    notPlayed.forEach((m, i) => {
+      lines.push(
+        (i + 1) + ". " +
+        (m.home || "O2 Slovakia") + " vs. " + (m.away || "Soupeř") +
+        " | " + (m.time || "čas?") + " | " + (m.field || "hřiště?")
+      );
+    });
+  }
+
+  return lines.join("\n");
+}
+
+function generateReport(){
+  const report = buildReport();
+  const panel = document.getElementById("reportPanel");
+  const output = document.getElementById("reportOutput");
+  const reportHtml = document.getElementById("reportHtml");
+
+  reportHtml.innerHTML = buildHtmlReport();
+  output.value = report;
+  panel.classList.add("show");
+  setTimeout(() => panel.scrollIntoView({behavior:"smooth", block:"start"}), 50);
+}
+
+async function copyReport(){
+  const report = document.getElementById("reportOutput").value || buildReport();
+  try{
+    await navigator.clipboard.writeText(report);
+    alert("Report je zkopírovaný do schránky.");
+  } catch(e){
+    alert("Kopírování se nepovedlo. Označ text ručně a zkopíruj ho.");
+  }
+}
+
+async function shareReport(){
+  const report = document.getElementById("reportOutput").value || buildReport();
+
+  if(navigator.share){
+    try{
+      await navigator.share({
+        title:"O2 Slovakia - turnaj report",
+        text:report
+      });
+    } catch(e){}
+  } else {
+    await copyReport();
+  }
+}
+
+function downloadReport(){
+  const report = document.getElementById("reportOutput").value || buildReport();
+  const blob = new Blob([report], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "O2_Slovakia_turnaj_report.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
+function resetAll(){
+  if(!confirm("Opravdu chceš smazat všechny vyplněné výsledky a přidané zápasy?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  matches = [...baseMatches.map(m => ({...m})), ...extraMatches.map(m => ({...m}))];
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
