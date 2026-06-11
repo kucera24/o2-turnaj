@@ -128,8 +128,22 @@ input{
   font-size:24px;
   font-weight:800;
 }
-.result{
+.played-toggle{
   margin-top:12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--muted);
+}
+.played-toggle input{
+  width:20px;
+  height:20px;
+  accent-color:var(--o2);
+}
+.result{
+  margin-top:8px;
   font-weight:700;
   font-size:14px;
 }
@@ -175,6 +189,32 @@ button{
   margin-top:12px;
   line-height:1.45;
 }
+.mode-banner{
+  max-width:760px;
+  margin:0 auto 12px;
+  padding:10px 12px;
+  border-radius:14px;
+  text-align:center;
+  font-weight:800;
+  font-size:13px;
+  box-shadow:0 4px 14px rgba(0,0,0,.06);
+}
+.mode-banner.admin{
+  background:#dcfce7;
+  color:#166534;
+}
+.mode-banner.readonly{
+  background:#eef2ff;
+  color:#3730a3;
+}
+.mode-banner.error{
+  background:#fee2e2;
+  color:#991b1b;
+}
+.readonly-disabled{
+  opacity:.55;
+  pointer-events:none;
+}
 @media(max-width:520px){
   .teams{
     grid-template-columns:1fr 58px 12px 58px 1fr;
@@ -196,6 +236,8 @@ button{
   <div class="subtitle">Klikni na skóre pro přidání gólu. Dlouhé podržení ubere gól.</div>
 </header>
 
+<div id="modeBanner" class="mode-banner readonly">🔄 Připojuji Firebase...</div>
+
 <div class="container">
   <div class="summary">
     <div><b id="played">0</b><span>odehráno</span></div>
@@ -213,8 +255,8 @@ button{
   <div id="matches"></div>
 
   <div class="actions">
-    <button class="add" onclick="addMatch()">➕ Přidat další zápas</button>
-    <button class="reset" onclick="resetAll()">Reset</button>
+    <button id="addBtn" class="add" onclick="addMatch()">➕ Přidat další zápas</button>
+    <button id="resetBtn" class="reset" onclick="resetAll()">Reset</button>
   </div>
 
   <div class="actions">
@@ -241,17 +283,38 @@ button{
   </div>
 </div>
 
-<script>
-const STORAGE_KEY = "o2-turnaj-zapasy-v5";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAi3q3ZrFE_veluTNxhsIv225Y6PlD-CXc",
+  authDomain: "o2-turnaj.firebaseapp.com",
+  projectId: "o2-turnaj",
+  storageBucket: "o2-turnaj.firebasestorage.app",
+  messagingSenderId: "164908344129",
+  appId: "1:164908344129:web:e2b76976c2e18f30aef7c0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const docRef = doc(db, "tournament", "matches");
+
+const ADMIN_CODE = "1234";
+let isAdmin = new URLSearchParams(window.location.search).get("admin") === ADMIN_CODE;
+let remoteReady = false;
+let savingRemote = false;
+
+const STORAGE_KEY = "o2-turnaj-zapasy-v7-firebase";
 let longPressTimer = null;
 let longPressUsed = false;
 
 const baseMatches = [
- {home:"Micropoll", away:"O2 Slovakia", time:"09:40", date:"12.06.2026", field:"Pasienky 1", visible:true, extra:false, homeScore:0, awayScore:0},
- {home:"Lidl Slovenská republika", away:"O2 Slovakia", time:"10:20", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
- {home:"O2 Slovakia", away:"Magna Electronics Slovakia", time:"11:00", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
- {home:"ASO VENDING", away:"O2 Slovakia", time:"11:40", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0},
- {home:"British American Tobacco", away:"O2 Slovakia", time:"12:20", date:"12.06.2026", field:"Pasienky 4", visible:true, extra:false, homeScore:0, awayScore:0}
+ {home:"Micropoll", away:"O2 Slovakia", time:"09:40", date:"12.06.2026", field:"Pasienky 1", visible:true, extra:false, homeScore:0, awayScore:0, played:false},
+ {home:"Lidl Slovenská republika", away:"O2 Slovakia", time:"10:20", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0, played:false},
+ {home:"O2 Slovakia", away:"Magna Electronics Slovakia", time:"11:00", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0, played:false},
+ {home:"ASO VENDING", away:"O2 Slovakia", time:"11:40", date:"12.06.2026", field:"Pasienky 2", visible:true, extra:false, homeScore:0, awayScore:0, played:false},
+ {home:"British American Tobacco", away:"O2 Slovakia", time:"12:20", date:"12.06.2026", field:"Pasienky 4", visible:true, extra:false, homeScore:0, awayScore:0, played:false}
 ];
 
 const extraMatches = Array.from({length:10}, () => ({
@@ -263,13 +326,30 @@ const extraMatches = Array.from({length:10}, () => ({
  visible:false,
  extra:true,
  homeScore:0,
- awayScore:0
+ awayScore:0,
+ played:false
 }));
 
 let matches = load() || [...baseMatches.map(m => ({...m})), ...extraMatches.map(m => ({...m}))];
 
 function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+
+  if(isAdmin && remoteReady){
+    savingRemote = true;
+    setDoc(docRef, {
+      version: "2",
+      updatedAt: new Date().toISOString(),
+      matches: matches
+    }, { merge: true })
+    .catch(err => {
+      console.error("Firebase save error", err);
+      showMode("error", "⚠️ Nepodařilo se uložit do Firebase.");
+    })
+    .finally(() => {
+      savingRemote = false;
+    });
+  }
 }
 
 function load(){
@@ -278,7 +358,8 @@ function load(){
     return Array.isArray(data) ? data.map(m => ({
       ...m,
       homeScore: Number.isFinite(Number(m.homeScore)) ? Number(m.homeScore) : 0,
-      awayScore: Number.isFinite(Number(m.awayScore)) ? Number(m.awayScore) : 0
+      awayScore: Number.isFinite(Number(m.awayScore)) ? Number(m.awayScore) : 0,
+      played: Boolean(m.played)
     })) : null;
   } catch(e){
     return null;
@@ -304,6 +385,7 @@ function o2Data(match){
 }
 
 function o2Result(match){
+  if(!match.played) return null;
   const {o2Score, opponentScore} = o2Data(match);
   if(o2Score > opponentScore) return "win";
   if(o2Score < opponentScore) return "loss";
@@ -314,7 +396,7 @@ function resultText(type){
   if(type === "win") return "✅ Výhra O2 Slovakia";
   if(type === "loss") return "❌ Prohra O2 Slovakia";
   if(type === "draw") return "🤝 Remíza";
-  return "";
+  return "⏳ Neodehráno";
 }
 
 function changeGoal(index, field, direction){
@@ -376,10 +458,10 @@ function render(){
 
     const extraFields = m.extra ? `
       <div class="extra-fields">
-        <input class="full" value="${escapeHtml(m.away)}" placeholder="Soupeř - s kým hraje O2 Slovakia?" oninput="updateTextField(${index}, 'away', this.value)" onblur="render()">
-        <input value="${escapeHtml(m.date)}" placeholder="Datum" oninput="updateTextField(${index}, 'date', this.value)" onblur="render()">
-        <input value="${escapeHtml(m.time)}" placeholder="Čas" oninput="updateTextField(${index}, 'time', this.value)" onblur="render()">
-        <input value="${escapeHtml(m.field)}" placeholder="Hřiště" oninput="updateTextField(${index}, 'field', this.value)" onblur="render()">
+        <input ${isAdmin ? "" : "disabled"} class="full" value="${escapeHtml(m.away)}" placeholder="Soupeř - s kým hraje O2 Slovakia?" oninput="updateTextField(${index}, 'away', this.value)" onblur="render()">
+        <input ${isAdmin ? "" : "disabled"} value="${escapeHtml(m.date)}" placeholder="Datum" oninput="updateTextField(${index}, 'date', this.value)" onblur="render()">
+        <input ${isAdmin ? "" : "disabled"} value="${escapeHtml(m.time)}" placeholder="Čas" oninput="updateTextField(${index}, 'time', this.value)" onblur="render()">
+        <input ${isAdmin ? "" : "disabled"} value="${escapeHtml(m.field)}" placeholder="Hřiště" oninput="updateTextField(${index}, 'field', this.value)" onblur="render()">
       </div>
     ` : "";
 
@@ -392,7 +474,8 @@ function render(){
       <div class="teams">
         <div class="team">${escapeHtml(m.home || "O2 Slovakia")}</div>
 
-        <button class="goal-btn"
+        <button class="goal-btn ${isAdmin ? "" : "readonly-disabled"}"
+          ${isAdmin ? "" : "disabled"}
           onclick="event.preventDefault()"
           onpointerdown="startLongPress(event, ${index}, 'homeScore')"
           onpointerup="endLongPress(event, ${index}, 'homeScore')"
@@ -400,7 +483,8 @@ function render(){
 
         <div class="colon">:</div>
 
-        <button class="goal-btn"
+        <button class="goal-btn ${isAdmin ? "" : "readonly-disabled"}"
+          ${isAdmin ? "" : "disabled"}
           onclick="event.preventDefault()"
           onpointerdown="startLongPress(event, ${index}, 'awayScore')"
           onpointerup="endLongPress(event, ${index}, 'awayScore')"
@@ -408,6 +492,10 @@ function render(){
 
         <div class="team right">${escapeHtml(m.away || "Soupeř")}</div>
       </div>
+      <label class="played-toggle">
+        <input type="checkbox" ${m.played ? "checked" : ""} ${isAdmin ? "" : "disabled"} onchange="togglePlayed(${index}, this.checked)">
+        Zápas odehrán
+      </label>
       <div class="result ${type || ""}">${resultText(type)}</div>
     `;
 
@@ -415,6 +503,12 @@ function render(){
   });
 
   updateSummary();
+}
+
+function togglePlayed(index, checked){
+  matches[index].played = checked;
+  save();
+  render();
 }
 
 function updateTextField(index, field, value){
@@ -429,6 +523,7 @@ function updateMatch(index, field, value){
 }
 
 function addMatch(){
+  if(!isAdmin) return;
   const next = matches.find(m => m.extra && !m.visible);
   if(!next){
     alert("Všech 10 dodatečných zápasů je už zobrazeno.");
@@ -453,9 +548,7 @@ function updateSummary(){
     const hs = Number(m.homeScore ?? 0);
     const as = Number(m.awayScore ?? 0);
 
-    // Zápas bereme jako odehraný až když je skóre jiné než 0:0.
-    // 0:0 je default stav, aby se nepočítaly všechny zápasy hned jako remízy.
-    if(hs === 0 && as === 0) return;
+    if(!m.played) return;
 
     const data = o2Data(m);
     const type = o2Result(m);
@@ -484,7 +577,7 @@ function visibleMatches(){
 }
 
 function playedMatches(){
-  return visibleMatches().filter(m => Number(m.homeScore ?? 0) !== 0 || Number(m.awayScore ?? 0) !== 0);
+  return visibleMatches().filter(m => m.played);
 }
 
 
@@ -524,7 +617,7 @@ function calcStats(){
 function buildHtmlReport(){
   const stats = calcStats();
   const playedList = playedMatches();
-  const pendingList = visibleMatches().filter(m => Number(m.homeScore ?? 0) === 0 && Number(m.awayScore ?? 0) === 0);
+  const pendingList = visibleMatches().filter(m => !m.played);
   const avg = stats.played > 0 ? (stats.goalsFor / stats.played).toFixed(1) : "0.0";
 
   let html = "";
@@ -690,7 +783,7 @@ function buildReport(){
     });
   }
 
-  const notPlayed = visibleMatches().filter(m => Number(m.homeScore ?? 0) === 0 && Number(m.awayScore ?? 0) === 0);
+  const notPlayed = visibleMatches().filter(m => !m.played);
 
   if(notPlayed.length > 0){
     lines.push("");
@@ -759,13 +852,105 @@ function downloadReport(){
 
 
 function resetAll(){
+  if(!isAdmin) return;
   if(!confirm("Opravdu chceš smazat všechny vyplněné výsledky a přidané zápasy?")) return;
   localStorage.removeItem(STORAGE_KEY);
   matches = [...baseMatches.map(m => ({...m})), ...extraMatches.map(m => ({...m}))];
   render();
 }
 
+
+function showMode(type, text){
+  const banner = document.getElementById("modeBanner");
+  if(!banner) return;
+  banner.className = "mode-banner " + type;
+  banner.textContent = text;
+}
+
+function updateAdminUi(){
+  const addBtn = document.getElementById("addBtn");
+  const resetBtn = document.getElementById("resetBtn");
+
+  if(addBtn) addBtn.style.display = isAdmin ? "block" : "none";
+  if(resetBtn) resetBtn.style.display = isAdmin ? "block" : "none";
+
+  if(isAdmin){
+    showMode("admin", "🔐 Admin režim: můžeš upravovat výsledky. Data se ukládají všem.");
+  } else {
+    showMode("readonly", "👀 Režim pro čtení: výsledky se načítají společně pro všechny.");
+  }
+}
+
+function normalizeMatches(data){
+  if(!Array.isArray(data)) return null;
+  return data.map(m => ({
+    ...m,
+    homeScore: Number.isFinite(Number(m.homeScore)) ? Number(m.homeScore) : 0,
+    awayScore: Number.isFinite(Number(m.awayScore)) ? Number(m.awayScore) : 0,
+    played: Boolean(m.played),
+    visible: Boolean(m.visible),
+    extra: Boolean(m.extra)
+  }));
+}
+
+async function initFirebaseSync(){
+  updateAdminUi();
+
+  try{
+    const initial = await getDoc(docRef);
+
+    if(!initial.exists() || !Array.isArray(initial.data().matches)){
+      if(isAdmin){
+        await setDoc(docRef, {
+          version: "2",
+          updatedAt: new Date().toISOString(),
+          matches: matches
+        }, { merge: true });
+      }
+    }
+  } catch(err){
+    console.error("Firebase init error", err);
+    showMode("error", "⚠️ Firebase se nepodařilo inicializovat. Aplikace jede lokálně.");
+  }
+
+  onSnapshot(docRef, (snapshot) => {
+    remoteReady = true;
+    const data = snapshot.data();
+
+    if(data && Array.isArray(data.matches) && !savingRemote){
+      const normalized = normalizeMatches(data.matches);
+      if(normalized){
+        matches = normalized;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+        render();
+      }
+    }
+
+    updateAdminUi();
+  }, (err) => {
+    console.error("Firebase snapshot error", err);
+    showMode("error", "⚠️ Nepodařilo se načíst sdílená data z Firebase.");
+  });
+}
+
+// inline HTML handlers need globals in module script
+Object.assign(window, {
+  startLongPress,
+  endLongPress,
+  cancelLongPress,
+  updateTextField,
+  togglePlayed,
+  addMatch,
+  resetAll,
+  generateReport,
+  copyReport,
+  shareReport,
+  downloadReport
+});
+
+
 render();
+initFirebaseSync();
 </script>
 </body>
 </html>
